@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 API_URL = "https://www.tuik.gov.tr/Kurumsal/GetYillikHaberBulteniListesi?yil=2026"
-OUT_XLSX = Path("/Users/orhon/Documents/KEH copy 2/tuik_veri_takvimi_2026_kalan.xlsx")
+OUT_XLSX = Path("/tuik_veri_takvimi_2026_kalan.xlsx")
 
 # API'den 2026 takvim verisini çek
 with urllib.request.urlopen(API_URL, timeout=30) as r:
