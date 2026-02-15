@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import json
+import urllib.request
+from datetime import date
+from pathlib import Path
+
+import pandas as pd
+
+API_URL = "https://www.tuik.gov.tr/Kurumsal/GetYillikHaberBulteniListesi?yil=2026"
+OUT_XLSX = Path("/Users/orhon/Documents/KEH copy 2/tuik_veri_takvimi_2026_kalan.xlsx")
+
+# API'den 2026 takvim verisini çek
+with urllib.request.urlopen(API_URL, timeout=30) as r:
+    obj = json.loads(r.read().decode("utf-8"))
+
+# Kalan takvim: yayında olmayanlar + bugün ve sonrası
+rows = obj.get("yayindaOlmayanlarList", [])
+cutoff = pd.Timestamp(date.today())
+
+df = pd.DataFrame(rows)
+df["gTarih"] = pd.to_datetime(df["gTarih"], errors="coerce")
+df = df[
+    (df["gTarih"].notna())
+    & (df["gTarih"].dt.year == 2026)
+    & (df["gTarih"] >= cutoff)
+].sort_values(["gTarih", "sorumluKisaAd", "adi"], kind="stable")
+
+df = df.rename(
+    columns={
+        "gTarih": "yayim_tarihi",
+        "sorumluKisaAd": "kurum_kisa_ad",
+        "sorumluKurum": "kurum",
+        "adi": "gosterge_adi",
+        "donemi": "donem",
+        "birimi": "birim",
+        "link": "link",
+        "id": "kayit_id",
+        "dilId": "dil_id",
+    }
+)
+
+cols = [
+    "yayim_tarihi",
+    "kurum_kisa_ad",
+    "kurum",
+    "gosterge_adi",
+    "donem",
+    "birim",
+    "link",
+    "kayit_id",
+    "dil_id",
+]
+df = df[cols]
+
+meta = pd.DataFrame(
+    [
+        {"alan": "kaynak_url", "deger": "https://www.tuik.gov.tr/Kurumsal/Veri_Takvimi"},
+        {"alan": "api_endpoint", "deger": API_URL},
+        {"alan": "filtre", "deger": f"yayim_tarihi >= {cutoff.date().isoformat()} && yil=2026"},
+        {"alan": "kayit_sayisi", "deger": str(len(df))},
+    ]
+)
+
+with pd.ExcelWriter(OUT_XLSX, engine="openpyxl", datetime_format="yyyy-mm-dd hh:mm:ss") as writer:
+    df.to_excel(writer, sheet_name="kalan_takvim_2026", index=False)
+    meta.to_excel(writer, sheet_name="meta", index=False)
+
+print(f"Yazıldı: {OUT_XLSX}")
+print(f"Kayıt sayısı: {len(df)}")
